@@ -1,0 +1,237 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coffee Machine Market Atlas</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=gambetta@500,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f1ea;--card:#fffdf9;--ink:#2a1f17;--mute:#7a6a5c;--line:#e5dacd;--acc:#8a4b22;--g:#6f8f3a;--r:#8a4b22;--p:#c99a3c}
+*{box-sizing:border-box}body{margin:0;font-family:Satoshi,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+header{display:flex;align-items:center;gap:14px;padding:16px 24px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap}
+h1{font-family:Gambetta,serif;font-weight:600;font-size:22px;margin:0}header p{margin:0;color:var(--mute);font-size:12px}
+.wrap{padding:18px 24px;display:grid;gap:16px;grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.controls{grid-column:1/-1;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:8px 14px;font:inherit;cursor:pointer;color:var(--mute)}
+.seg button.on{background:var(--ink);color:#fff}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);margin-right:6px}
+select{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.kpis{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi b{display:block;font-size:24px;font-variant-numeric:tabular-nums}.kpi span{color:var(--mute);font-size:12px}
+#map{height:480px;border-radius:8px;background:#e9eef0}
+h3{margin:0 0 10px;font-size:14px}.note{font-size:11px;color:var(--mute);line-height:1.5}
+.legend{background:#fff;padding:8px 10px;border-radius:6px;font-size:11px;line-height:1.6}
+.legend i{display:inline-block;width:12px;height:12px;margin-right:6px;vertical-align:-2px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}td,th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:right}td:first-child,th:first-child{text-align:left}
+th{font-size:11px;color:var(--mute);font-weight:500}
+.full{grid-column:1/-1}
+#modelCard{display:none}
+html{scroll-behavior:smooth}
+.jump{font:inherit;font-size:12px;font-weight:500;color:var(--acc);background:transparent;border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+.jump:hover{color:var(--ink);border-color:var(--acc)}
+.jump:hover{color:var(--ink)}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+</style></head><body>
+<header><svg width="56" height="56" viewBox="0 0 64 64" fill="none" aria-label="Coffee Machine Market Atlas logo">
+<defs>
+<linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#c99a3c"/><stop offset=".55" stop-color="#8a4b22"/><stop offset="1" stop-color="#4e2b12"/>
+</linearGradient>
+</defs>
+<circle cx="32" cy="32" r="30" fill="url(#lg)" opacity=".12"/>
+<circle cx="32" cy="32" r="27" stroke="url(#lg)" stroke-width="2.2"/>
+<!-- cup -->
+<path d="M20 26h18l-2 14a5 5 0 0 1-5 4h-4a5 5 0 0 1-5-4z" fill="url(#lg)"/>
+<path d="M38 29h3a3 3 0 0 1 0 6h-3.5" stroke="url(#lg)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+<!-- steam -->
+<path d="M27 21c1.2-2.2 3.8-2.2 5 0s3.8 2.2 5 0" stroke="#c99a3c" stroke-width="2" stroke-linecap="round"/>
+<path d="M25 16c1.2-2.2 3.8-2.2 5 0s3.8 2.2 5 0" stroke="#c99a3c" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+<!-- bean arc -->
+<path d="M14 40c-4-6-4-14 0-20" stroke="#6f8f3a" stroke-width="2" stroke-linecap="round"/>
+<path d="M46 20c4 6 4 14 0 20" stroke="#6f8f3a" stroke-width="2" stroke-linecap="round"/>
+</svg>
+<div><h1>Coffee Machine Market Atlas</h1><p>Household &amp; small-office machines sold per year · 2025 modeled estimates (million units)</p></div></header>
+<div class="wrap">
+<div class="card controls">
+ <div><span class="lbl">View</span><div class="seg" id="view"><button data-v="country" class="on">Sales by country</button><button data-v="seller">By seller</button><button data-v="mfg">By country of manufacture</button></div></div>
+ <div><span class="lbl">Machine type</span><div class="seg" id="segf"><button data-s="all" class="on">All</button><button data-s="green">Green coffee</button><button data-s="rg">Roast &amp; ground / beans</button><button data-s="pod">Pods &amp; capsules</button></div></div>
+ <div id="brandBox" style="display:none"><span class="lbl">Seller</span><select id="brand"></select></div>
+</div>
+<div class="kpis" id="kpis"></div>
+<div class="card"><h3 id="mapTitle" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span id="mapTitleTxt"></span><button class="jump" id="jumpModels" style="display:none">Jump to model-level origins ↓</button></h3><div id="map"></div></div>
+<div class="card"><h3 id="chartTitle"></h3><div style="height:440px"><canvas id="bar"></canvas></div></div>
+<div class="card"><h3>Machine-type mix</h3><div style="height:260px"><canvas id="mix"></canvas></div></div>
+<div class="card"><h3 id="tblTitle"></h3><div id="tbl" style="max-height:260px;overflow:auto"></div></div>
+<div class="card" id="models" style="scroll-margin-top:20px"><div id="modelCard"><h3 id="modelTitle"></h3><div id="modelTbl"></div><p class="note" style="margin-top:10px">Model-level origins are estimates from Nespresso FAQ, Keurig packaging and supplier disclosures, and Dolce Gusto product pages; the same model can be made in more than one country, and origin can vary by unit even within a range. Unit splits by model are modeled, not measured.</p></div></div>
+<div class="card full note"><b>Machine types.</b> Green coffee = machines that roast raw green beans (home roasters and roast-grind-brew units, e.g. Aillio, Behmor, Gene Café, Kaffelogic, Fresh Roast) — a niche well under 1% of units. Roast &amp; ground / beans = drip/filter, manual espresso, bean-to-cup fully automatics, Senseo-style open pads are counted as pods. Pods &amp; capsules = Nespresso, Keurig K-Cup, Dolce Gusto, Tassimo, Senseo, Lavazza A Modo Mio etc.<br>
+<b>Method and sources.</b> Country volumes and seller shares are modeled estimates, anchored on published figures: De'Longhi ~18% and top-5 players ~47% of global value (<a href="https://www.gminsights.com/industry-analysis/coffee-machines-market">GM Insights</a>); Keurig 28% / Nespresso 18% of North American automatic machines (<a href="https://www.gminsights.com/industry-analysis/north-america-automatic-coffee-machine-market">GM Insights NA</a>); Europe ~38.6% of value and filter machines ~31% (<a href="https://www.mordorintelligence.com/industry-reports/global-coffee-machine-market">Mordor Intelligence</a>); Keurig &gt;18M machines/yr, De'Longhi ~3.5M fully automatics/yr, Nespresso >22M machines operating globally (<a href="https://www.snsinsider.com/reports/coffee-machines-market-8647">SNS Insider</a>); Dolce Gusto shipped 4.7M machines globally in 2023, with 63% sold in emerging markets (<a href="https://glassandnote.com/culture/comment-nestles-strong-prospects-2">Glass and Note</a>). China's seller mix follows published reports: De'Longhi ~24%, Nespresso ~8%, Philips ~7%, Gemilai ~6% of value (<a href="https://www.gminsights.com/industry-analysis/china-coffee-machines-market">GM Insights China</a>), Nespresso ~2.6% of units (<a href="https://moojing-global.com/news-research/china-coffee-machine-market-2025">Moojing</a>), with Joyoung, HiBREW, Barsetto, Petrus and Xiaomi as major local sellers (<a href="https://www.ice.it/it/sites/default/files/inline-files/Executive%20summary%20-%20Survey%20on%20the%20coffee%20and%20coffee%20machinery%20market%20in%20China.pdf">ICE/ITA</a>). Country-of-manufacture splits reflect publicly known plant footprints (e.g. De'Longhi in Italy, Romania and China; Jura/Nespresso machines from Eugster/Frismag, which assembles mainly in Portugal, Hungary and China with limited Swiss output; Keurig brewers are assembled in Malaysia, Thailand, Indonesia and China; most drip and pod brewers from Chinese OEMs) and are approximate. Nespresso and Dolce Gusto machines are sold under partner brands (De'Longhi, Krups, Breville) — they are counted under the system owner here. Use for directional analysis, not as audited data.</div>
+</div>
+<script>
+const C={USA:["United States of America",32],CHN:["China",9],DEU:["Germany",9],GBR:["United Kingdom",6],FRA:["France",6.5],ITA:["Italy",4.5],JPN:["Japan",5],ESP:["Spain",3],BRA:["Brazil",4],CAN:["Canada",3.5],RUS:["Russia",2.5],NLD:["Netherlands",2],CHE:["Switzerland",1],AUS:["Australia",2],KOR:["South Korea",2.5],POL:["Poland",1.8],BEL:["Belgium",1.2],SWE:["Sweden",0.9],AUT:["Austria",0.8],MEX:["Mexico",2],IND:["India",1.5],TUR:["Turkey",1.5],PRT:["Portugal",0.8],NOR:["Norway",0.5],DNK:["Denmark",0.5],ARG:["Argentina",1],ZAF:["South Africa",0.8],ARE:["United Arab Emirates",0.4],SAU:["Saudi Arabia",0.6],NZL:["New Zealand",0.4]};
+const REG={USA:"NA",CAN:"NA",MEX:"LA",BRA:"LA",ARG:"LA",CHN:"AS",JPN:"AS",KOR:"AS",IND:"AS",AUS:"OC",NZL:"OC",ITA:"SE",ESP:"SE",PRT:"SE",FRA:"WE",BEL:"WE",NLD:"WE",GBR:"UK",DEU:"DA",AUT:"DA",CHE:"DA",SWE:"NO",NOR:"NO",DNK:"NO",POL:"EE",RUS:"EE",TUR:"ME",ARE:"ME",SAU:"ME",ZAF:"ME"};
+// segment shares: [green, rg, pod]
+const SEG={NA:[.004,.55,.446],LA:[.002,.72,.278],AS:[.003,.70,.297],OC:[.006,.55,.444],SE:[.002,.55,.448],WE:[.002,.48,.518],UK:[.003,.52,.477],DA:[.003,.62,.377],NO:[.004,.70,.296],EE:[.001,.70,.299],ME:[.001,.62,.379]};
+const BR={rg:{NA:{"Hamilton Beach":.18,"Mr. Coffee":.15,"Cuisinart":.12,"Black+Decker":.09,"Ninja":.12,"Breville":.07,"De'Longhi":.07,"Philips":.03,"Others":.17},
+ LA:{"Oster":.2,"Black+Decker":.12,"Mondial":.12,"Philco":.1,"Electrolux":.08,"De'Longhi":.06,"Philips":.06,"Others":.26},
+ AS:{"Joyoung/HiBREW":.2,"De'Longhi":.14,"Philips":.1,"Xiaomi/Midea":.12,"Panasonic":.06,"Jura":.04,"Others":.34},
+ OC:{"Breville":.3,"De'Longhi":.18,"Sunbeam":.12,"Philips":.06,"Kmart Anko":.14,"Jura":.03,"Others":.17},
+ SE:{"De'Longhi":.3,"Bialetti":.16,"Philips":.1,"Krups":.07,"Smeg":.05,"Cecotec":.08,"Others":.24},
+ WE:{"De'Longhi":.18,"Philips":.15,"Moulinex/Krups":.18,"Melitta":.08,"Siemens/Bosch":.06,"Others":.35},
+ UK:{"De'Longhi":.2,"Russell Hobbs":.16,"Breville/Sage":.1,"Philips":.08,"Morphy Richards":.08,"Swan":.06,"Others":.32},
+ DA:{"De'Longhi":.18,"Melitta":.16,"Philips":.13,"Siemens/Bosch":.12,"Krups":.07,"Jura":.06,"WMF":.06,"Others":.22},
+ NO:{"Moccamaster":.16,"Philips":.12,"De'Longhi":.14,"OBH Nordica":.1,"Electrolux":.08,"Melitta":.08,"Others":.32},
+ EE:{"De'Longhi":.2,"Philips":.16,"Bosch":.08,"Krups":.08,"Polaris":.08,"Others":.4},
+ ME:{"De'Longhi":.2,"Philips":.14,"Arzum":.1,"Black+Decker":.1,"Kenwood":.08,"Others":.38}},
+pod:{NA:{"Keurig":.62,"Nespresso":.22,"Ninja":.06,"Hamilton Beach":.04,"Others":.06},
+ LA:{"Nespresso":.4,"Dolce Gusto":.2,"Tres Corações":.15,"Others":.25},
+ AS:{"Nespresso":.2,"Dolce Gusto":.12,"Joyoung/HiBREW":.32,"Lavazza":.06,"Others":.3},OC:{"Nespresso":.55,"Dolce Gusto":.12,"Lavazza":.1,"Others":.23},
+ SE:{"Nespresso":.4,"Dolce Gusto":.18,"Lavazza":.18,"Others":.24},WE:{"Nespresso":.32,"Senseo (Philips)":.3,"Dolce Gusto":.12,"Tassimo":.08,"Others":.18},
+ UK:{"Nespresso":.4,"Dolce Gusto":.17,"Tassimo":.18,"Lavazza":.04,"Others":.21},DA:{"Nespresso":.3,"Dolce Gusto":.15,"Tassimo":.2,"Senseo (Philips)":.15,"Others":.2},
+ NO:{"Nespresso":.45,"Dolce Gusto":.18,"Senseo (Philips)":.1,"Others":.27},EE:{"Dolce Gusto":.22,"Nespresso":.3,"Tassimo":.15,"Others":.33},ME:{"Nespresso":.5,"Dolce Gusto":.2,"Others":.3}},
+green:{_:{"Behmor":.22,"Fresh Roast":.22,"Gene Café":.16,"Aillio":.14,"Kaffelogic":.1,"Others":.16}}};
+// country of manufacture split by seller
+const MFG={"De'Longhi":{ITA:.35,ROU:.3,CHN:.35},"Philips":{ROU:.35,ITA:.15,CHN:.5},"Senseo (Philips)":{CHN:.7,POL:.3},"Nespresso":{HUN:.35,PRT:.25,CHN:.3,ITA:.1},"Keurig":{MYS:.35,IDN:.25,THA:.15,CHN:.25},"Dolce Gusto":{CHN:.6,ROU:.2,ITA:.1,IND:.1},"Tassimo":{SVN:.4,CHN:.6},
+"Jura":{CHE:1},"Melitta":{DEU:.3,PRT:.2,CHN:.5},"Siemens/Bosch":{SVN:.3,DEU:.2,CHN:.5},"Bosch":{SVN:.3,DEU:.2,CHN:.5},"WMF":{DEU:.2,CHN:.8},"Moccamaster":{NLD:1},"Bialetti":{ROU:.6,ITA:.4},"Smeg":{ITA:.3,CHN:.7},"Lavazza":{ITA:.3,CHN:.7},
+"Krups":{CHN:.7,DEU:.3},"Joyoung/HiBREW":{CHN:1},"Lavazza":{ITA:.3,CHN:.7},"Moulinex/Krups":{CHN:.8,FRA:.2},"Breville":{CHN:1},"Breville/Sage":{CHN:1},"Ninja":{CHN:.6,VNM:.4},"Panasonic":{CHN:.6,JPN:.4},"Zojirushi":{CHN:.7,JPN:.3},"Arzum":{TUR:.6,CHN:.4},"Tres Corações":{BRA:.4,CHN:.6},"Mondial":{BRA:.6,CHN:.4},"Philco":{BRA:.5,CHN:.5},"Electrolux":{CHN:.8,BRA:.2},
+"Kaffelogic":{NZL:1},"Aillio":{TWN:1},"Gene Café":{KOR:1},"Behmor":{CHN:1},"Fresh Roast":{CHN:1}};
+const MFGN={MYS:"Malaysia",IDN:"Indonesia",THA:"Thailand",HUN:"Hungary",ITA:"Italy",ROU:"Romania",CHN:"China",CHE:"Switzerland",VNM:"Vietnam",POL:"Poland",SVN:"Slovenia",DEU:"Germany",PRT:"Portugal",NLD:"Netherlands",FRA:"France",JPN:"Japan",TUR:"Turkey",BRA:"Brazil",NZL:"New Zealand",TWN:"Taiwan",KOR:"South Korea",OTH:"Other / undisclosed"};
+const MFG_OTHERS={CHN:.85,TUR:.03,BRA:.02,OTH:.1};
+// build fact rows: country, seg, brand, units
+const rows=[];for(const[iso,[nm,u]] of Object.entries(C)){const r=REG[iso],s=SEG[r];[["green",0],["rg",1],["pod",2]].forEach(([k,i])=>{const m=k=="green"?BR.green._:BR[k][r];for(const[b,sh] of Object.entries(m))rows.push({iso,seg:k,brand:b,u:u*s[i]*sh})})}
+const BRANDNAME={"Siemens/Bosch":"Bosch / Siemens (BSH)","Bosch":"Bosch / Siemens (BSH)","Moulinex/Krups":"Krups / Moulinex (SEB)","Krups":"Krups / Moulinex (SEB)","Breville/Sage":"Breville / Sage","Senseo (Philips)":"Philips (incl. Senseo)","Philips":"Philips (incl. Senseo)"};
+rows.forEach(r=>r.b=BRANDNAME[r.brand]||r.brand);
+let view="country",seg="all",brand="All sellers";
+const fmt=v=>v>=10?v.toFixed(1):v>=1?v.toFixed(2):v>=.01?v.toFixed(3):v.toFixed(4);
+const pal=["#f3e6d4","#e2c39b","#c99a64","#a8703c","#7d4a22","#4e2b12"];
+function col(v,max){if(!v)return"#ece5db";const t=Math.sqrt(v/max);return pal[Math.min(5,Math.floor(t*6))]}
+const map=L.map("map",{worldCopyJump:true,zoomSnap:.25}).setView([30,10],1.75);
+map.attributionControl.addAttribution("Boundaries: Natural Earth");
+let geo,legend;
+const bar=new Chart(document.getElementById("bar"),{type:"bar",data:{labels:[],datasets:[]},options:{indexAxis:"y",maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{boxWidth:10}}},scales:{x:{stacked:true,title:{display:true,text:"million units"}},y:{stacked:true,ticks:{font:{size:11}}}}}});
+const mix=new Chart(document.getElementById("mix"),{type:"doughnut",data:{labels:["Green coffee","Roast & ground / beans","Pods & capsules"],datasets:[{data:[],backgroundColor:["#6f8f3a","#8a4b22","#c99a3c"]}]},options:{maintainAspectRatio:false,cutout:"62%",plugins:{legend:{position:"right"},tooltip:{callbacks:{label:c=>`${c.label}: ${fmt(c.raw)}M`}}}}});
+const SEGS=[["green","Green coffee","#6f8f3a"],["rg","Roast & ground / beans","#8a4b22"],["pod","Pods & capsules","#c99a3c"]];
+const NMODELS=[
+["Essenza Mini","rg",.45,"China",.55,"Portugal"],
+["CitiZ","pod",.7,"China",.3,"Portugal"],
+["Pixie","pod",.55,"China",.45,"Switzerland"],
+["Lattissima","pod",.3,"Italy",.7,"Hungary"],
+["Vertuo Plus","pod",.4,"Hungary",.6,"Portugal"],
+["Vertuo Pop","pod",.35,"Hungary",.65,"Portugal"],
+["Vertuo Next","pod",.3,"Hungary",.7,"Portugal"],
+["Vertuo Creativa","pod",.3,"Hungary",.7,"Portugal"],
+["Gran Maestria","pod",.15,"Switzerland",.85,"China"],
+["Maestria","pod",.1,"Switzerland",.9,"China"],
+["Creatista","pod",.2,"Hungary",.8,"Portugal"],
+["Expert","pod",.25,"Hungary",.75,"Portugal"],
+["Inissia","pod",.6,"China",.4,"Portugal"],
+["U","pod",.5,"Hungary",.5,"Portugal"],
+["Evolutis","rg",.3,"Hungary",.7,"Portugal"],
+];
+const MISO={China:"CHN",Portugal:"PRT",Switzerland:"CHE",Hungary:"HUN",Italy:"ITA",Malaysia:"MYS",Indonesia:"IDN",Thailand:"THA"};
+const KMODELS=[["K-Mini","pod",.55,"Malaysia",.45,"China"],["K-Classic","pod",.6,"Indonesia",.4,"China"],["K-Express","pod",.65,"Indonesia",.35,"Malaysia"],["K-Express Essentials","pod",.55,"China",.45,"Indonesia"],["K-Duo","pod",.6,"Malaysia",.4,"Indonesia"],["K-Supreme Plus","pod",.6,"Thailand",.4,"China"],["K-Supreme Plus SMART","pod",.5,"Thailand",.5,"China"],["K-Cafe","pod",.65,"Indonesia",.35,"China"],["K-Cafe SMART","pod",.6,"Indonesia",.4,"China"],["K-Iced Plus","pod",.55,"Indonesia",.45,"China"],["K-Slim","pod",.6,"Malaysia",.4,"China"],["K-Slim ICED","pod",.55,"Malaysia",.45,"China"],["K-Elite","pod",.6,"China",.4,"Malaysia"],["K-MultiStream Plus","pod",.5,"Thailand",.5,"China"]];
+const DMODELS=[
+["Genio S","pod",.45,"China",.55,"Indonesia"],
+["Genio S Plus","pod",.45,"China",.55,"Indonesia"],
+["Genio S Touch","pod",.4,"China",.6,"Indonesia"],
+["Genio 2","pod",.4,"China",.6,"Indonesia"],
+["Piccolo XS","pod",.45,"Indonesia",.55,"Poland"],
+["Mini Me","pod",.5,"China",.5,"Romania"],
+["Infinissima","pod",.5,"China",.5,"Indonesia"],
+["Lumio","pod",.4,"China",.6,"Indonesia"],
+["Neo","pod",.55,"China",.45,"Romania"],
+["Jovia","pod",.4,"China",.6,"Romania"],
+["Eclipse","pod",.4,"China",.6,"Romania"],
+["Stelia","pod",.35,"China",.65,"Romania"],
+["Circolo","pod",.4,"China",.6,"Romania"],
+["Melody","pod",.45,"China",.55,"Indonesia"],
+["Esperta","pod",.35,"China",.65,"Romania"],
+["Drop","pod",.45,"China",.55,"Romania"],
+["Movenza","pod",.35,"China",.65,"Romania"],
+["Oblo","pod",.45,"China",.55,"Indonesia"],
+];
+function renderModels(){
+ const sel=(view=="seller"&&brand!="All sellers")?brand:null;
+ document.getElementById("models").style.display=sel?"":"none";document.getElementById("jumpModels").style.display=sel?"":"none";
+ let allHtml="",any=false;
+ const sets=[["Nespresso","Nespresso",NMODELS],["Keurig","Keurig",KMODELS],["Dolce Gusto","Dolce Gusto",DMODELS]];
+ for(const[label,brand,MODELS] of sets){
+  if(sel&&label!=sel)continue;
+ const f=rows.filter(r=>r.b==brand&&(seg=="all"||r.seg==seg));
+ if(!f.length)continue;any=true;
+ // assign each unit to models by seg mix; scale total across models
+ const tot=f.reduce((a,r)=>a+r.u,0);
+ const mixPod=f.filter(r=>r.seg=="pod").reduce((a,r)=>a+r.u,0);
+ const mixRg=f.filter(r=>r.seg=="rg").reduce((a,r)=>a+r.u,0);
+ const bySeg=seg=="all"?{rg:mixRg,pod:mixPod}:{[seg]:tot};
+ let html=`<table><tr><th colspan="6" style="text-align:left;font-weight:700;padding-top:12px">${label}</th></tr><tr><th>Model</th><th>Type</th><th>M units (est.)</th><th>Share</th><th>Origin 1</th><th>Origin 2</th></tr>`;
+ const out=[];
+ for(const[m,k,c1,c2] of MODELS.map(n=>[n[0],n[1],n[2],n[4]])){
+  const segU=bySeg[k]||0;if(!segU)continue;
+  const u=segU*(k=="pod"?0.9:1)*(c1*0+1)*(NMODELS.filter(x=>x[1]==k).reduce((a,x)=>a+1,0)===NMODELS.filter(x=>x[1]==k).length?1:1);
+  out.push({m,k,u});
+ }
+ // distribute: weight models equally within their segment then normalize to segment total
+ const perK={};out.forEach(o=>perK[o.k]=(perK[o.k]||0)+1);
+ out.forEach(o=>{o.u=bySeg[o.k]/perK[o.k]});
+ const sumU=out.reduce((a,o)=>a+o.u,0);
+ out.sort((a,b)=>b.u-a.u).forEach(o=>{
+  const nm=MODELS.find(n=>n[0]==o.m);
+  const o1=nm[3],o2=nm[5];
+  html+=`<tr><td>${o.m}</td><td>${o.k=="pod"?"Pods":"Roast & ground"}</td><td>${fmt(o.u)}</td><td>${(o.u/sumU*100).toFixed(1)}%</td><td>${o1}</td><td>${o2}</td></tr>`;
+ });
+ allHtml+=html+"</table>";
+ }
+ document.getElementById("modelTitle").textContent=any?"Model-level manufacturing origins":"Model-level manufacturing origins (no matching sellers in this filter)";
+ document.getElementById("modelTbl").innerHTML=any?allHtml:"<p class=\"note\">No matching sellers in the current selection.</p>";
+}
+function filt(){return rows.filter(r=>(seg=="all"||r.seg==seg)&&(view!="seller"||brand=="All sellers"||r.b==brand))}
+function mfgRows(f){const out=[];f.forEach(r=>{const m=MFG[r.brand]||MFG_OTHERS;for(const[c,s] of Object.entries(m))out.push({...r,iso:c,u:r.u*s})});return out}
+function sum(a,key){const o={};a.forEach(r=>{o[r[key]]=(o[r[key]]||0)+r.u});return o}
+function render(){
+ document.getElementById("brandBox").style.display=view=="seller"?"":"none";
+ let f=filt(); const geoRows=view=="mfg"?mfgRows(f):f; const byC=sum(geoRows,"iso"); const max=Math.max(...Object.values(byC));
+ const tot=f.reduce((a,r)=>a+r.u,0);
+ const nameOf=iso=>view=="mfg"?(MFGN[iso]||iso):(C[iso]?.[0]||iso);
+ // map
+ if(geo)map.removeLayer(geo);
+ geo=L.geoJSON(window.W,{style:ft=>({fillColor:col(byC[ft.id],max),weight:.6,color:"#fff",fillOpacity:.9}),onEachFeature:(ft,l)=>{const v=byC[ft.id];l.bindTooltip(`<b>${ft.properties.name}</b><br>${v?fmt(v)+"M units ("+(v/Object.values(byC).reduce((a,b)=>a+b,0)*100).toFixed(1)+"%)":"no data"}`,{sticky:true})}}).addTo(map);
+ if(legend)legend.remove();legend=L.control({position:"bottomleft"});legend.onAdd=()=>{const d=L.DomUtil.create("div","legend");d.innerHTML="<b>M units</b><br>"+pal.map((c,i)=>`<i style="background:${c}"></i>${i?fmt(max*(i/6)**2):"0"}–${fmt(max*((i+1)/6)**2)}`).join("<br>");return d};legend.addTo(map);
+ const segName=seg=="all"?"all machine types":SEGS.find(s=>s[0]==seg)[1].toLowerCase();
+ document.getElementById("mapTitleTxt").textContent=view=="mfg"?`Where machines are manufactured — ${segName}`:view=="seller"?`${brand} — units sold by country, ${segName}`:`Units sold by country — ${segName}`;
+ // bar chart
+ let labels,ds;
+ if(view=="country"){const top=Object.entries(byC).sort((a,b)=>b[1]-a[1]).slice(0,15).map(e=>e[0]);labels=top.map(nameOf);
+  ds=SEGS.filter(s=>seg=="all"||s[0]==seg).map(([k,n,c])=>({label:n,backgroundColor:c,data:top.map(i=>f.filter(r=>r.iso==i&&r.seg==k).reduce((a,r)=>a+r.u,0))}));
+  document.getElementById("chartTitle").textContent="Top 15 markets by machine type";}
+ else if(view=="seller"){const bb=sum(f,"b");const top=Object.entries(bb).filter(e=>e[0]!="Others").sort((a,b)=>b[1]-a[1]).slice(0,15).map(e=>e[0]);labels=top;
+  ds=SEGS.filter(s=>seg=="all"||s[0]==seg).map(([k,n,c])=>({label:n,backgroundColor:c,data:top.map(b=>f.filter(r=>r.b==b&&r.seg==k).reduce((a,r)=>a+r.u,0))}));
+  document.getElementById("chartTitle").textContent=brand=="All sellers"?"Top 15 sellers by machine type":brand+" by machine type";}
+ else{const top=Object.entries(byC).sort((a,b)=>b[1]-a[1]).slice(0,12).map(e=>e[0]);labels=top.map(nameOf);
+  ds=SEGS.filter(s=>seg=="all"||s[0]==seg).map(([k,n,c])=>({label:n,backgroundColor:c,data:top.map(i=>geoRows.filter(r=>r.iso==i&&r.seg==k).reduce((a,r)=>a+r.u,0))}));
+  document.getElementById("chartTitle").textContent="Production by country of manufacture";}
+ bar.data.labels=labels;bar.data.datasets=ds;bar.update();
+ mix.data.datasets[0].data=SEGS.map(([k])=>f.filter(r=>r.seg==k).reduce((a,r)=>a+r.u,0));mix.update();
+ // table
+ let t,hdr;
+ if(view=="mfg"){const byB={};mfgRows(f).forEach(r=>{(byB[r.iso]??={});byB[r.iso][r.b]=(byB[r.iso][r.b]||0)+r.u});
+  t=Object.entries(byC).sort((a,b)=>b[1]-a[1]).map(([i,v])=>[nameOf(i),fmt(v),Object.entries(byB[i]).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>e[0]).join(", ")]);hdr=["Made in","M units","Main sellers sourced"];
+  document.getElementById("tblTitle").textContent="Manufacturing countries";}
+ else{const byB={};f.forEach(r=>{(byB[r.iso]??={});byB[r.iso][r.b]=(byB[r.iso][r.b]||0)+r.u});
+  t=Object.entries(byC).sort((a,b)=>b[1]-a[1]).map(([i,v])=>[nameOf(i),fmt(v),view=="seller"&&brand!="All sellers"?(v/rows.filter(r=>r.iso==i&&(seg=="all"||r.seg==seg)).reduce((a,r)=>a+r.u,0)*100).toFixed(1)+"% share":Object.entries(byB[i]).filter(e=>e[0]!="Others").sort((a,b)=>b[1]-a[1])[0][0]]);
+  hdr=["Country","M units",view=="seller"&&brand!="All sellers"?"Local share":"Leading seller"];document.getElementById("tblTitle").textContent="Country detail";}
+ document.getElementById("tbl").innerHTML=`<table><tr>${hdr.map(h=>`<th>${h}</th>`).join("")}</tr>${t.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</table>`;
+ // kpis
+ const lead=Object.entries(sum(f,"b")).filter(e=>e[0]!="Others").sort((a,b)=>b[1]-a[1])[0];const topC=Object.entries(byC).sort((a,b)=>b[1]-a[1])[0];
+ const podSh=f.filter(r=>r.seg=="pod").reduce((a,r)=>a+r.u,0)/tot;
+ renderModels();
+ document.getElementById("kpis").innerHTML=[[fmt(tot)+"M","Machines sold / year (selection)"],[nameOf(topC[0]),view=="mfg"?"Top manufacturing country ("+(topC[1]/tot*100).toFixed(0)+"%)":"Largest market ("+(topC[1]/tot*100).toFixed(0)+"%)"],[lead?lead[0]:"—","Leading seller in selection"],[(podSh*100).toFixed(0)+"%","Pods & capsules share of units"]].map(([b,s])=>`<div class="card kpi"><b>${b}</b><span>${s}</span></div>`).join("");
+}
+const brands=["All sellers",...Object.entries(sum(rows,"b")).filter(e=>e[0]!="Others").sort((a,b)=>b[1]-a[1]).map(e=>e[0])];
+document.getElementById("brand").innerHTML=brands.map(b=>`<option>${b}</option>`).join("");
+document.getElementById("brand").onchange=e=>{brand=e.target.value;render()};
+document.getElementById("jumpModels").onclick=()=>document.getElementById("models").scrollIntoView({behavior:"smooth",block:"start"});
+document.querySelectorAll("#view button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#view button").forEach(x=>x.classList.remove("on"));b.classList.add("on");view=b.dataset.v;render()});
+document.querySelectorAll("#segf button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#segf button").forEach(x=>x.classList.remove("on"));b.classList.add("on");seg=b.dataset.s;render()});
+fetch("world.geojson").then(r=>r.json()).then(j=>{j.features.forEach(f=>{if(f.id=="-99"&&f.properties.name=="Taiwan")f.id="TWN"});window.W=j;render()});
+</script></body></html>
